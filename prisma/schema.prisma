@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Group states
+// REGISTRATION - open for new participants
+// ACTIVE - game is active
+// LOCKED - no new participants allowed
+// REVEAL - reveal is available
+// FINISHED - game ended
+model Group {
+  id                String   @id @default(cuid())
+  name              String
+  code              String   @unique // public group code (e.g., ULTRA-8K29)
+  description       String?
+  presentationDate  String   // ISO date string YYYY-MM-DD
+  presentationTime  String   // HH:MM 24h
+  timezone          String   @default("America/Bogota")
+  status            String   @default("REGISTRATION") // REGISTRATION | ACTIVE | LOCKED | REVEAL | FINISHED
+  adminTokenHash    String   // hashed admin token
+  organizerName     String?  // creator's display name (for the admin)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  participants Participant[]
+  messages     Message[]
+  guesses      Guess[]
+
+  @@index([code])
+}
+
+model Participant {
+  id                String   @id @default(cuid())
+  groupId           String
+  alias             String
+  realName          String   // private - only used internally
+  personalCodeHash  String   // hashed personal code (login credential)
+  avatar            String   @default("🎭") // emoji avatar
+  // We store an unhashed session token to allow quick local-login.
+  // The hashed version of personalCodeHash is what is checked server-side.
+  joinedAt          DateTime @default(now())
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  messages Message[]
+  guesses  Guess[]  @relation("GuesserParticipation")
+  targets  Guess[]  @relation("TargetParticipation")
+
+  @@unique([groupId, alias])
+  @@index([groupId])
+  @@index([personalCodeHash])
+}
+
+model Message {
+  id            String   @id @default(cuid())
+  groupId       String
+  participantId String
+  content       String
+  createdAt     DateTime @default(now())
+
+  group       Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, createdAt])
+}
+
+// Each guess: participant (guesser) -> target (whose identity) -> guessed (who they think)
+model Guess {
+  id                  String   @id @default(cuid())
+  groupId             String
+  participantId       String   // who is guessing
+  targetParticipantId String   // whose identity they are trying to identify
+  guessedParticipantId String?  // who they think the target is (null = no guess yet, but recorded)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  group       Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  participant Participant @relation("GuesserParticipation", fields: [participantId], references: [id], onDelete: Cascade)
+  target      Participant @relation("TargetParticipation", fields: [targetParticipantId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, participantId, targetParticipantId])
+  @@index([groupId])
+  @@index([participantId])
+}
