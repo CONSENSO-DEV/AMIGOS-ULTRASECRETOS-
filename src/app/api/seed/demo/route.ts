@@ -3,7 +3,6 @@ import { db } from '@/lib/db'
 import {
   generateGroupCode,
   generateAdminCode,
-  generatePersonalCode,
   hashToken,
 } from '@/lib/codes'
 import { publicGroup } from '@/lib/group-state'
@@ -66,30 +65,30 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Demo participants with their real names
+    // Demo participants with their real names and pre-set passwords (so the
+    // user can log in as any of them to test the app).
     const demo = [
-      { alias: 'El Zorro', avatar: '🦊', realName: 'Carlos Pérez' },
-      { alias: 'La Rana', avatar: '🐸', realName: 'María Gómez' },
-      { alias: 'El Misterioso', avatar: '🎩', realName: 'Juan Rodríguez' },
-      { alias: 'El Fantasma', avatar: '👻', realName: 'Laura Sánchez' },
-      { alias: 'El León', avatar: '🦁', realName: 'Andrés Torres' },
+      { alias: 'El Zorro', avatar: '🦊', realName: 'Carlos Pérez', password: 'zorro123' },
+      { alias: 'La Rana', avatar: '🐸', realName: 'María Gómez', password: 'rana123' },
+      { alias: 'El Misterioso', avatar: '🎩', realName: 'Juan Rodríguez', password: 'misterio123' },
+      { alias: 'El Fantasma', avatar: '👻', realName: 'Laura Sánchez', password: 'fantasma123' },
+      { alias: 'El León', avatar: '🦁', realName: 'Andrés Torres', password: 'leon123' },
     ]
 
     const participants: any[] = []
-    const personalCodes: string[] = []
+    const passwords: string[] = []
     for (const d of demo) {
-      const pc = generatePersonalCode()
       const p = await db.participant.create({
         data: {
           groupId: group.id,
           alias: d.alias,
           realName: d.realName,
           avatar: d.avatar,
-          personalCodeHash: hashToken(pc),
+          personalCodeHash: hashToken(d.password),
         },
       })
       participants.push(p)
-      personalCodes.push(pc)
+      passwords.push(d.password)
     }
 
     // Add some demo chat messages
@@ -151,7 +150,7 @@ export async function POST(req: NextRequest) {
         alias: p.alias,
         avatar: p.avatar,
         realName: p.realName, // visible because this is the demo seed (no real participants)
-        personalCode: personalCodes[idx],
+        password: passwords[idx],
       })),
     })
   } catch (e: any) {

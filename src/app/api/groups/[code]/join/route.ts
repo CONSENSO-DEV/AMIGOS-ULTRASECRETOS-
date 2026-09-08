@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import {
-  generatePersonalCode,
   hashToken,
   pickRandomAvatar,
 } from '@/lib/codes'
@@ -23,6 +22,10 @@ const JoinSchema = z.object({
     .trim()
     .min(2, 'Tu nombre real es obligatorio')
     .max(60, 'El nombre es demasiado largo'),
+  password: z
+    .string()
+    .min(4, 'La contraseña debe tener al menos 4 caracteres')
+    .max(100, 'La contraseña es demasiado larga (máx 100)'),
 })
 
 export async function POST(
@@ -57,6 +60,7 @@ export async function POST(
 
     const alias = parsed.data.alias.trim()
     const realName = parsed.data.realName.trim()
+    const password = parsed.data.password
 
     // Check alias uniqueness
     const existing = await db.participant.findFirst({
@@ -69,22 +73,24 @@ export async function POST(
       )
     }
 
-    const personalCode = generatePersonalCode()
+    // Hash the user-chosen password with SHA-256 + salt (same primitive as codes)
     const participant = await db.participant.create({
       data: {
         groupId: group.id,
         alias,
         realName,
-        personalCodeHash: hashToken(personalCode),
+        personalCodeHash: hashToken(password),
         avatar: pickRandomAvatar(),
       },
     })
 
-    // Build session cookie value (the personal code acts as the "password")
+    // Build session cookie value. We store the raw password so the cookie
+    // acts as a bearer credential that's re-validated against the hash on
+    // every request (see lib/session.ts getParticipantFromRequest).
     const cookieValue = buildSessionCookieValue(
       participant.id,
       group.code,
-      personalCode
+      password
     )
 
     const response = NextResponse.json({
@@ -93,7 +99,6 @@ export async function POST(
         id: participant.id,
         alias: participant.alias,
         avatar: participant.avatar,
-        personalCode,
       },
     })
     response.cookies.set(SESSION_COOKIE, cookieValue, {

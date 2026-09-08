@@ -11,7 +11,7 @@ import {
 const LoginSchema = z.object({
   groupCode: z.string().trim().min(1, 'Código del grupo requerido'),
   alias: z.string().trim().min(1, 'Alias requerido'),
-  personalCode: z.string().trim().min(1, 'Código personal requerido'),
+  password: z.string().min(1, 'Contraseña requerida'),
 })
 
 export async function POST(req: NextRequest) {
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     )
   }
-  const { groupCode, alias, personalCode } = parsed.data
+  const { groupCode, alias, password } = parsed.data
 
   // Rate limit: 5 attempts per 5 minutes per IP+alias
   const ip = req.headers.get('x-forwarded-for') ?? 'unknown'
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const result = await getParticipantByCredentials(groupCode, alias, personalCode)
+  const result = await getParticipantByCredentials(groupCode, alias, password)
   if (!result) {
     return NextResponse.json(
       { ok: false, error: 'No pudimos validar tu acceso.' },
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   const cookieValue = buildSessionCookieValue(
     participant.id,
     group.code,
-    personalCode
+    password
   )
   const response = NextResponse.json({
     ok: true,

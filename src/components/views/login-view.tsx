@@ -6,21 +6,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChevronLeft, KeyRound, AlertTriangle, LogIn } from 'lucide-react'
+import { ChevronLeft, KeyRound, AlertTriangle, LogIn, Eye, EyeOff } from 'lucide-react'
 import { navigate, goBack } from '@/lib/router'
 import { toast } from 'sonner'
 
 export function LoginView({ presetCode = '' }: { presetCode?: string }) {
   const [groupCode, setGroupCode] = useState(presetCode)
   const [alias, setAlias] = useState('')
-  const [personalCode, setPersonalCode] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (!groupCode.trim() || !alias.trim() || !personalCode.trim()) {
+    if (!groupCode.trim() || !alias.trim() || !password) {
       setError('Completa todos los campos')
       return
     }
@@ -32,7 +33,7 @@ export function LoginView({ presetCode = '' }: { presetCode?: string }) {
         body: JSON.stringify({
           groupCode: groupCode.trim(),
           alias: alias.trim(),
-          personalCode: personalCode.trim().toUpperCase(),
+          password,
         }),
       })
       const data = await r.json()
@@ -65,8 +66,8 @@ export function LoginView({ presetCode = '' }: { presetCode?: string }) {
             <h1 className="text-3xl font-extrabold">Recuperar mi acceso</h1>
             <p className="text-muted-foreground mt-2">
               {presetCode
-                ? 'Usa tu alias y código personal para recuperar tu identidad.'
-                : 'Usa tu código personal para volver a entrar.'}
+                ? 'Usa tu alias y contraseña para recuperar tu identidad.'
+                : 'Usa tu alias y contraseña para volver a entrar.'}
             </p>
           </div>
 
@@ -118,14 +119,25 @@ export function LoginView({ presetCode = '' }: { presetCode?: string }) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="personalCode">Código personal</Label>
-                  <Input
-                    id="personalCode"
-                    placeholder="XXXX-XXXX"
-                    value={personalCode}
-                    onChange={(e) => setPersonalCode(e.target.value.toUpperCase())}
-                    className="font-mono"
-                  />
+                  <Label htmlFor="password">Contraseña</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Tu contraseña"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 {error && (

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChevronLeft, Users, Calendar, Clock, AlertTriangle, Check, PartyPopper, KeyRound, Copy } from 'lucide-react'
+import { ChevronLeft, Users, Calendar, AlertTriangle, PartyPopper, KeyRound, Eye, EyeOff, Lock } from 'lucide-react'
 import { navigate, goBack } from '@/lib/router'
 import { useFetch } from '@/hooks/use-fetch'
 import { formatPresentationDate } from '@/lib/time'
@@ -70,6 +70,8 @@ export function JoinGroupView({ code }: { code: string }) {
   const { data, loading, error } = useFetch<any>(`/api/groups/${code}`)
   const [alias, setAlias] = useState('')
   const [realName, setRealName] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [success, setSuccess] = useState<any>(null)
@@ -86,7 +88,6 @@ export function JoinGroupView({ code }: { code: string }) {
         if (cancelled) return
         if (d.authenticated && d.groupCode === code) {
           setSessionCheck('has-session')
-          // Auto-redirect to the dashboard
           navigate(`#/group/${code}`)
         } else {
           setSessionCheck('no-session')
@@ -110,12 +111,20 @@ export function JoinGroupView({ code }: { code: string }) {
       setSubmitError('Tu nombre real es obligatorio')
       return
     }
+    if (password.length < 4) {
+      setSubmitError('La contraseña debe tener al menos 4 caracteres')
+      return
+    }
     setSubmitting(true)
     try {
       const r = await fetch(`/api/groups/${code}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alias: alias.trim(), realName: realName.trim() }),
+        body: JSON.stringify({
+          alias: alias.trim(),
+          realName: realName.trim(),
+          password,
+        }),
       })
       const data = await r.json()
       if (!r.ok) {
@@ -143,7 +152,6 @@ export function JoinGroupView({ code }: { code: string }) {
   }
 
   if (sessionCheck === 'has-session') {
-    // Will redirect via effect, render nothing meaningful
     return null
   }
 
@@ -214,11 +222,11 @@ export function JoinGroupView({ code }: { code: string }) {
 
           <Card className="border-2">
             <CardHeader>
-              <CardTitle>Elige tu alias secreto</CardTitle>
+              <CardTitle>Crea tu identidad secreta</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="alias">Alias *</Label>
+                <Label htmlFor="alias">Tu alias *</Label>
                 <Input
                   id="alias"
                   placeholder="El Zorro, La Rana, El Fantasma..."
@@ -241,6 +249,34 @@ export function JoinGroupView({ code }: { code: string }) {
                 />
                 <p className="text-xs text-muted-foreground">
                   🔒 Privado. Solo se usará para validar las adivinanzas y la revelación. Nadie más lo verá.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Crea tu contraseña personal</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Tu contraseña (privada)"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    maxLength={100}
+                    className="pr-10"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !submitting) submit()
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  🔒 La usaremos para reconocerte cuando entres desde otro dispositivo. No la compartas con nadie.
                 </p>
               </div>
 
@@ -293,13 +329,6 @@ function InfoCard({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 function JoinedSuccess({ group, participant, code }: { group: any; participant: any; code: string }) {
-  const [copied, setCopied] = useState(false)
-  const copy = () => {
-    navigator.clipboard.writeText(participant.personalCode).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    })
-  }
   return (
     <main className="flex-1 flex flex-col px-4 py-8 md:py-12">
       <div className="max-w-lg w-full mx-auto">
@@ -330,29 +359,22 @@ function JoinedSuccess({ group, participant, code }: { group: any; participant: 
 
           <Card className="border-2 border-accent/40 bg-accent/5 mb-6">
             <CardContent className="p-5 space-y-3">
-              <p className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-                Tu código personal
-              </p>
               <div className="flex items-center gap-2">
-                <code className="flex-1 bg-card border rounded-lg px-4 py-3 font-mono text-xl text-center font-bold tracking-widest">
-                  {participant.personalCode}
-                </code>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={copy}
-                  aria-label="Copiar código"
-                >
-                  {copied ? <Check className="size-4 text-green-500" /> : <Copy className="size-4" />}
-                </Button>
+                <Lock className="size-5 text-accent shrink-0" />
+                <p className="font-bold">Tu acceso está guardado en este dispositivo</p>
               </div>
+              <p className="text-sm text-muted-foreground">
+                Has creado tu alias <strong>{participant.alias}</strong> y una contraseña personal.
+                No te la volveremos a preguntar mientras mantengas este dispositivo.
+              </p>
               <div className="bg-card/80 border border-border/60 rounded-lg p-3 text-sm text-muted-foreground">
-                <p className="font-bold text-foreground mb-1">⚠️ Importante</p>
-                Guarda este código. Lo necesitarás para recuperar tu acceso desde otro dispositivo.
-                Sin él, no podrás entrar a tu cuenta.
+                <p className="font-bold text-foreground mb-1">⚠️ Para recuperar tu acceso</p>
+                Si entras desde otro dispositivo, usa <strong>"Recuperar mi acceso"</strong> con tu
+                alias y la contraseña que acabas de crear. Guárdala en un lugar seguro: no la
+                almacenamos en texto plano y no podemos enviártela si la olvidas.
               </div>
               <p className="text-xs text-muted-foreground italic text-center">
-                💡 Ya estás dentro. Las próximas veces que abras el enlace, entrarás automáticamente.
+                💡 Las próximas veces que abras el enlace, entrarás automáticamente.
               </p>
             </CardContent>
           </Card>

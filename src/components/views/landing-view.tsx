@@ -236,7 +236,7 @@ function DemoCreatedCard({
         <Row label="Admin" value={adminToken} mono />
         <div className="border-t border-border/60 pt-2 mt-2">
           <p className="text-xs text-muted-foreground mb-2">
-            Participantes (entrar con su código personal):
+            Participantes (entrar con su contraseña):
           </p>
           {participants.map((p: any, i: number) => (
             <div
@@ -247,10 +247,10 @@ function DemoCreatedCard({
                 {p.avatar} <strong>{p.alias}</strong> <span className="text-muted-foreground">({p.realName})</span>
               </span>
               <button
-                onClick={() => copy(p.personalCode, `${p.alias}-code`)}
+                onClick={() => copy(p.password, `${p.alias}-pw`)}
                 className="font-mono px-2 py-1 bg-card rounded border hover:border-accent transition-colors"
               >
-                {copied === `${p.alias}-code` ? '¡Copiado!' : p.personalCode}
+                {copied === `${p.alias}-pw` ? '¡Copiado!' : p.password}
               </button>
             </div>
           ))}
