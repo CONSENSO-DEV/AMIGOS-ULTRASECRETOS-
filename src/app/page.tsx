@@ -21,11 +21,11 @@ export default function Home() {
     case 'join-code':
       return <JoinGroupView code={route.params!.code} />
     case 'login':
-      return <LoginView />
+      return <LoginView presetCode={route.query?.code ?? ''} />
     case 'group':
       return <GroupDashboardView code={route.params!.code} />
     case 'admin-login':
-      return <AdminLoginView />
+      return <AdminLoginView presetCode={route.query?.code ?? ''} />
     case 'admin':
       return <AdminDashboardView code={route.params!.code} />
     default:

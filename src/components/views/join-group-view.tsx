@@ -6,20 +6,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChevronLeft, Users, Calendar, Clock, AlertTriangle, Check, PartyPopper } from 'lucide-react'
-import { navigate } from '@/lib/router'
+import { ChevronLeft, Users, Calendar, Clock, AlertTriangle, Check, PartyPopper, KeyRound, Copy } from 'lucide-react'
+import { navigate, goBack } from '@/lib/router'
 import { useFetch } from '@/hooks/use-fetch'
 import { formatPresentationDate } from '@/lib/time'
 
 export function JoinView() {
   const [code, setCode] = useState('')
-  const [submitted, setSubmitted] = useState(false)
-
   return (
     <main className="flex-1 flex flex-col px-4 py-8 md:py-12">
       <div className="max-w-lg w-full mx-auto">
         <button
-          onClick={() => navigate('#/')}
+          onClick={() => goBack('#/')}
           className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
         >
           <ChevronLeft className="size-4 mr-1" /> Volver
@@ -32,39 +30,37 @@ export function JoinView() {
           Introduce el código del grupo que te compartieron.
         </p>
 
-        {!submitted ? (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="border-2">
-              <CardContent className="p-6 space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="code">Código del grupo</Label>
-                  <Input
-                    id="code"
-                    placeholder="ULTRA-XXXX"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    className="text-center font-mono text-lg tracking-wider"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && code.trim()) {
-                        navigate(`#/join/${code.trim()}`)
-                      }
-                    }}
-                  />
-                </div>
-                <Button
-                  className="w-full h-12 rounded-xl font-bold"
-                  disabled={code.trim().length < 3}
-                  onClick={() => navigate(`#/join/${code.trim()}`)}
-                >
-                  Continuar →
-                </Button>
-                <p className="text-xs text-muted-foreground text-center">
-                  ¿Tienes el enlace? Ábrelo directamente y saldrá esta pantalla.
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ) : null}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <Card className="border-2">
+            <CardContent className="p-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="code">Código del grupo</Label>
+                <Input
+                  id="code"
+                  placeholder="Ej: CONSENSO2026"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  className="text-center font-mono text-lg tracking-wider"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && code.trim()) {
+                      navigate(`#/join/${code.trim()}`)
+                    }
+                  }}
+                />
+              </div>
+              <Button
+                className="w-full h-12 rounded-xl font-bold"
+                disabled={code.trim().length < 3}
+                onClick={() => navigate(`#/join/${code.trim()}`)}
+              >
+                Continuar →
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                ¿Tienes el enlace? Ábrelo directamente y saldrá esta pantalla.
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     </main>
   )
@@ -77,8 +73,32 @@ export function JoinGroupView({ code }: { code: string }) {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [success, setSuccess] = useState<any>(null)
+  const [sessionCheck, setSessionCheck] = useState<'checking' | 'no-session' | 'has-session'>('checking')
 
   const group = data?.group
+
+  // Check if user already has a session for THIS group → auto-redirect
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return
+        if (d.authenticated && d.groupCode === code) {
+          setSessionCheck('has-session')
+          // Auto-redirect to the dashboard
+          navigate(`#/group/${code}`)
+        } else {
+          setSessionCheck('no-session')
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSessionCheck('no-session')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [code])
 
   const submit = async () => {
     setSubmitError(null)
@@ -114,12 +134,17 @@ export function JoinGroupView({ code }: { code: string }) {
     return <JoinedSuccess group={group} participant={success.participant} code={code} />
   }
 
-  if (loading) {
+  if (loading || sessionCheck === 'checking') {
     return (
       <main className="flex-1 flex items-center justify-center px-4">
-        <p className="text-muted-foreground">Cargando grupo...</p>
+        <p className="text-muted-foreground">Cargando...</p>
       </main>
     )
+  }
+
+  if (sessionCheck === 'has-session') {
+    // Will redirect via effect, render nothing meaningful
+    return null
   }
 
   if (error || !group) {
@@ -127,7 +152,7 @@ export function JoinGroupView({ code }: { code: string }) {
       <main className="flex-1 flex flex-col px-4 py-8">
         <div className="max-w-lg w-full mx-auto">
           <button
-            onClick={() => navigate('#/join')}
+            onClick={() => goBack('#/')}
             className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
           >
             <ChevronLeft className="size-4 mr-1" /> Volver
@@ -153,7 +178,7 @@ export function JoinGroupView({ code }: { code: string }) {
     <main className="flex-1 flex flex-col px-4 py-8 md:py-12">
       <div className="max-w-lg w-full mx-auto">
         <button
-          onClick={() => navigate('#/join')}
+          onClick={() => goBack('#/')}
           className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
         >
           <ChevronLeft className="size-4 mr-1" /> Volver
@@ -163,23 +188,29 @@ export function JoinGroupView({ code }: { code: string }) {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h1 className="text-2xl md:text-3xl font-extrabold text-center mb-2">
-            🎭 {group.name}
-          </h1>
-          {group.description && (
-            <p className="text-muted-foreground text-center text-sm mb-4">
-              {group.description}
-            </p>
-          )}
-
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <InfoCard icon={<Users className="size-5" />} label="Participantes" value={`${data.participantCount}`} />
-            <InfoCard
-              icon={<Calendar className="size-5" />}
-              label="Presentación"
-              value={formatPresentationDate(group.presentationDate, group.presentationTime, group.timezone)}
-            />
+          <div className="text-center mb-6">
+            <div className="text-5xl mb-2">🕵️</div>
+            <h1 className="text-2xl font-bold">Únete a Amigos Ultrasecretos</h1>
           </div>
+
+          <Card className="border-2 mb-4">
+            <CardContent className="p-5">
+              <h2 className="font-extrabold text-xl text-center">🎭 {group.name}</h2>
+              {group.description && (
+                <p className="text-muted-foreground text-center text-sm mt-1">
+                  {group.description}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                <InfoCard icon={<Users className="size-5" />} label="Participantes" value={`${data.participantCount}`} />
+                <InfoCard
+                  icon={<Calendar className="size-5" />}
+                  label="Presentación"
+                  value={formatPresentationDate(group.presentationDate, group.presentationTime, group.timezone)}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           <Card className="border-2">
             <CardHeader>
@@ -209,7 +240,7 @@ export function JoinGroupView({ code }: { code: string }) {
                   maxLength={60}
                 />
                 <p className="text-xs text-muted-foreground">
-                  🔒 Privado. Solo se usará para validar las adivinanzas y la revelación.
+                  🔒 Privado. Solo se usará para validar las adivinanzas y la revelación. Nadie más lo verá.
                 </p>
               </div>
 
@@ -227,6 +258,20 @@ export function JoinGroupView({ code }: { code: string }) {
               >
                 {submitting ? 'Uniéndose...' : '🎭 Unirme al grupo'}
               </Button>
+
+              <div className="pt-3 border-t border-border/60">
+                <p className="text-sm text-muted-foreground text-center mb-2">
+                  ¿Ya tienes una identidad en este grupo?
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate(`#/login?code=${encodeURIComponent(code)}`)}
+                >
+                  <KeyRound className="size-4 mr-2" />
+                  Recuperar mi acceso
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </motion.div>
@@ -273,10 +318,13 @@ function JoinedSuccess({ group, participant, code }: { group: any; participant: 
               {participant.avatar}
             </motion.div>
             <h1 className="text-3xl font-extrabold">
-              ¡Bienvenido, {participant.alias}!
+              ¡Ya estás dentro!
             </h1>
             <p className="text-muted-foreground mt-2">
               Has entrado al grupo <strong>{group?.name}</strong>.
+            </p>
+            <p className="font-bold mt-1 text-lg">
+              {participant.avatar} {participant.alias}
             </p>
           </div>
 
@@ -295,21 +343,17 @@ function JoinedSuccess({ group, participant, code }: { group: any; participant: 
                   onClick={copy}
                   aria-label="Copiar código"
                 >
-                  {copied ? <Check className="size-4 text-green-500" /> : <PartyPopper className="size-4" />}
+                  {copied ? <Check className="size-4 text-green-500" /> : <Copy className="size-4" />}
                 </Button>
               </div>
               <div className="bg-card/80 border border-border/60 rounded-lg p-3 text-sm text-muted-foreground">
                 <p className="font-bold text-foreground mb-1">⚠️ Importante</p>
-                Este código es privado. Guárdalo porque lo necesitarás para volver a entrar.
-                Sin él, ni tú ni nadie podrán acceder a tu cuenta.
+                Guarda este código. Lo necesitarás para recuperar tu acceso desde otro dispositivo.
+                Sin él, no podrás entrar a tu cuenta.
               </div>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => navigate('#/login')}
-              >
-                💾 Guardar mi acceso (recuperar después)
-              </Button>
+              <p className="text-xs text-muted-foreground italic text-center">
+                💡 Ya estás dentro. Las próximas veces que abras el enlace, entrarás automáticamente.
+              </p>
             </CardContent>
           </Card>
 
@@ -317,7 +361,8 @@ function JoinedSuccess({ group, participant, code }: { group: any; participant: 
             className="w-full h-12 rounded-xl font-bold text-base"
             onClick={() => navigate(`#/group/${code}`)}
           >
-            Entrar al grupo →
+            <PartyPopper className="size-4 mr-2" />
+        Entrar al grupo →
           </Button>
         </motion.div>
       </div>

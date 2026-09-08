@@ -4,21 +4,26 @@ import { db } from '@/lib/db'
 import {
   generateGroupCode,
   generateAdminCode,
-  generatePersonalCode,
   hashToken,
-  pickRandomAvatar,
 } from '@/lib/codes'
 import { publicGroup } from '@/lib/group-state'
 
+const CODE_PATTERN = /^[A-Z0-9]{3,30}$/
+
 const CreateGroupSchema = z.object({
   name: z.string().min(3, 'El nombre del grupo debe tener al menos 3 caracteres').max(80),
+  code: z
+    .string()
+    .min(3, 'El código debe tener al menos 3 caracteres')
+    .max(30, 'El código es demasiado largo (máx 30)')
+    .regex(CODE_PATTERN, 'El código solo puede contener letras y números, sin espacios')
+    .optional(),
   description: z.string().max(500).optional().nullable(),
   presentationDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (use YYYY-MM-DD)'),
   presentationTime: z.string().regex(/^\d{2}:\d{2}$/, 'Hora inválida (use HH:MM)'),
   timezone: z.string().default('America/Bogota'),
-  organizerName: z.string().min(2, 'Tu nombre es obligatorio').max(80),
 })
 
 export async function POST(req: NextRequest) {
@@ -50,13 +55,27 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Generate group code with retry on collision
-    let code = generateGroupCode()
-    let tries = 0
-    while (await db.group.findUnique({ where: { code } })) {
+    // Use custom code if provided, otherwise generate one.
+    let code = data.code?.toUpperCase().trim()
+    if (!code) {
       code = generateGroupCode()
-      tries++
-      if (tries > 10) break
+    }
+    // Ensure uniqueness (retry if generated, error if custom)
+    if (data.code) {
+      const existing = await db.group.findUnique({ where: { code } })
+      if (existing) {
+        return NextResponse.json(
+          { ok: false, error: 'Ese código ya está en uso. Elige otro.' },
+          { status: 409 }
+        )
+      }
+    } else {
+      let tries = 0
+      while (await db.group.findUnique({ where: { code } })) {
+        code = generateGroupCode()
+        tries++
+        if (tries > 10) break
+      }
     }
 
     // Generate admin token (returned to client ONCE in plaintext)
@@ -73,40 +92,18 @@ export async function POST(req: NextRequest) {
         timezone: data.timezone,
         status: 'REGISTRATION',
         adminTokenHash,
-        organizerName: data.organizerName,
+        organizerName: null, // admin is NOT a participant; we no longer store organizer name on the group
       },
     })
 
-    // Auto-create the organizer as the first participant.
-    const personalCode = generatePersonalCode()
-    const organizerAlias = sanitizeAlias(data.organizerName)
-    // ensure unique alias in this group
-    let finalAlias = organizerAlias
-    if (await db.participant.findFirst({ where: { groupId: group.id, alias: finalAlias } })) {
-      finalAlias = `${organizerAlias}-${Math.floor(Math.random() * 9000 + 1000)}`
-    }
-
-    const participant = await db.participant.create({
-      data: {
-        groupId: group.id,
-        alias: finalAlias,
-        realName: data.organizerName,
-        personalCodeHash: hashToken(personalCode),
-        avatar: pickRandomAvatar(),
-      },
-    })
+    // IMPORTANT: We deliberately do NOT create a Participant for the admin.
+    // The admin is a separate identity, identified only by the adminToken.
 
     return NextResponse.json({
       ok: true,
       group: publicGroup(group),
-      // Reveal only at creation time:
+      // Reveal admin token only at creation time:
       adminToken,
-      participant: {
-        id: participant.id,
-        alias: participant.alias,
-        avatar: participant.avatar,
-        personalCode,
-      },
     })
   } catch (e: any) {
     console.error('[POST /api/groups] error', e)
@@ -115,10 +112,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
-}
-
-function sanitizeAlias(name: string): string {
-  // take first 24 chars and trim
-  const trimmed = name.trim().slice(0, 24)
-  return trimmed
 }

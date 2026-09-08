@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChevronLeft, Sparkles, Copy, Check, AlertTriangle, PartyPopper } from 'lucide-react'
-import { navigate } from '@/lib/router'
+import { ChevronLeft, Sparkles, Copy, Check, AlertTriangle, PartyPopper, Settings, MessageCircle } from 'lucide-react'
+import { navigate, goBack } from '@/lib/router'
 import { toast } from 'sonner'
 
 interface CreatedGroup {
@@ -24,12 +24,6 @@ interface CreatedGroup {
     createdAt: string
   }
   adminToken: string
-  participant: {
-    id: string
-    alias: string
-    avatar: string
-    personalCode: string
-  }
 }
 
 export function CreateGroupView() {
@@ -38,10 +32,12 @@ export function CreateGroupView() {
   const [created, setCreated] = useState<CreatedGroup | null>(null)
 
   const [name, setName] = useState('')
+  const [code, setCode] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
-  const [organizerName, setOrganizerName] = useState('')
+
+  const normalizeCode = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '')
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,10 +50,6 @@ export function CreateGroupView() {
       setError('Fecha y hora son obligatorias')
       return
     }
-    if (!organizerName || organizerName.length < 2) {
-      setError('Tu nombre es obligatorio')
-      return
-    }
     setLoading(true)
     try {
       const r = await fetch('/api/groups', {
@@ -65,10 +57,10 @@ export function CreateGroupView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
+          code: code.trim() ? normalizeCode(code) : undefined,
           description: description.trim() || null,
           presentationDate: date,
           presentationTime: time,
-          organizerName: organizerName.trim(),
           timezone: 'America/Bogota',
         }),
       })
@@ -93,7 +85,7 @@ export function CreateGroupView() {
     <main className="flex-1 flex flex-col px-4 py-8 md:py-12">
       <div className="max-w-lg w-full mx-auto">
         <button
-          onClick={() => navigate('#/')}
+          onClick={() => goBack('#/')}
           className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
         >
           <ChevronLeft className="size-4 mr-1" /> Volver
@@ -131,6 +123,22 @@ export function CreateGroupView() {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="code">Código del grupo (opcional)</Label>
+                  <Input
+                    id="code"
+                    placeholder="Ej: CONSENSO2026"
+                    value={code}
+                    onChange={(e) => setCode(normalizeCode(e.target.value))}
+                    className="font-mono uppercase"
+                    maxLength={30}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Solo letras y números, sin espacios. Se convierte a mayúsculas automáticamente.
+                    Si lo dejas vacío, generaremos uno por ti.
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="date">Fecha de presentación *</Label>
@@ -166,21 +174,6 @@ export function CreateGroupView() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="organizer">Tu nombre (organizador/a) *</Label>
-                  <Input
-                    id="organizer"
-                    placeholder="¿Quién eres?"
-                    value={organizerName}
-                    onChange={(e) => setOrganizerName(e.target.value)}
-                    maxLength={60}
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Serás el primer participante y administrador del grupo.
-                  </p>
-                </div>
-
                 {error && (
                   <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg flex items-center gap-2 border border-destructive/30">
                     <AlertTriangle className="size-4 shrink-0" />
@@ -206,7 +199,7 @@ export function CreateGroupView() {
 }
 
 function CreatedGroupView({ created }: { created: CreatedGroup }) {
-  const { group, adminToken, participant } = created
+  const { group, adminToken } = created
   const [copied, setCopied] = useState<string>('')
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -232,10 +225,6 @@ function CreatedGroupView({ created }: { created: CreatedGroup }) {
     } else {
       copy(shareLink, 'share-link')
     }
-  }
-
-  const enter = () => {
-    navigate(`#/group/${group.code}`)
   }
 
   return (
@@ -284,25 +273,6 @@ function CreatedGroupView({ created }: { created: CreatedGroup }) {
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-accent/40 bg-accent/5 mb-4">
-            <CardContent className="p-5 space-y-3">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Tu alias</p>
-                <p className="text-lg font-bold">
-                  {participant.avatar} {participant.alias}
-                </p>
-              </div>
-              <Section
-                title="Tu código personal"
-                value={participant.personalCode}
-                mono
-                warning="Este código es privado. Guárdalo porque lo necesitarás para volver a entrar."
-                onCopy={() => copy(participant.personalCode, 'personal')}
-                copied={copied === 'personal'}
-              />
-            </CardContent>
-          </Card>
-
           <Card className="border-2 border-destructive/40 bg-destructive/5 mb-6">
             <CardContent className="p-5 space-y-2">
               <div className="flex items-center gap-2 text-destructive">
@@ -313,28 +283,42 @@ function CreatedGroupView({ created }: { created: CreatedGroup }) {
                 title=""
                 value={adminToken}
                 mono
-                warning="Guarda este código en un lugar seguro. Lo necesitarás para administrar el grupo. No lo compartas con los participantes."
+                warning="⚠️ Guarda este código en un lugar seguro. Lo necesitarás para administrar el grupo. No lo compartas con los participantes."
                 onCopy={() => copy(adminToken, 'admin')}
                 copied={copied === 'admin'}
               />
             </CardContent>
           </Card>
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Button
               variant="outline"
-              className="flex-1 h-12 rounded-xl"
+              className="h-12 rounded-xl"
               onClick={share}
             >
               📤 Compartir
             </Button>
             <Button
-              className="flex-1 h-12 rounded-xl font-bold"
-              onClick={enter}
+              variant="outline"
+              className="h-12 rounded-xl"
+              onClick={() => navigate(`#/admin/${group.code}`)}
             >
-              Entrar al grupo →
+              <Settings className="size-4 mr-2" />
+              Administrar
+            </Button>
+            <Button
+              className="h-12 rounded-xl font-bold"
+              onClick={() => navigate(`#/join/${group.code}`)}
+            >
+              <MessageCircle className="size-4 mr-2" />
+              Participar también
             </Button>
           </div>
+
+          <p className="text-xs text-muted-foreground text-center mt-4">
+            💡 Puedes administrar el grupo y también registrarte como participante con un alias.
+            Tu identidad de administrador y de participante serán independientes.
+          </p>
         </motion.div>
       </div>
     </main>

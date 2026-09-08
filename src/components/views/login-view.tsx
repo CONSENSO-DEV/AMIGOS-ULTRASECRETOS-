@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChevronLeft, KeyRound, AlertTriangle, LogIn } from 'lucide-react'
-import { navigate } from '@/lib/router'
+import { navigate, goBack } from '@/lib/router'
 import { toast } from 'sonner'
 
 export function LoginView({ presetCode = '' }: { presetCode?: string }) {
@@ -53,7 +53,7 @@ export function LoginView({ presetCode = '' }: { presetCode?: string }) {
     <main className="flex-1 flex flex-col px-4 py-8 md:py-12">
       <div className="max-w-lg w-full mx-auto">
         <button
-          onClick={() => navigate('#/')}
+          onClick={() => goBack('#/')}
           className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
         >
           <ChevronLeft className="size-4 mr-1" /> Volver
@@ -64,7 +64,9 @@ export function LoginView({ presetCode = '' }: { presetCode?: string }) {
             <div className="text-5xl mb-2">🔐</div>
             <h1 className="text-3xl font-extrabold">Recuperar mi acceso</h1>
             <p className="text-muted-foreground mt-2">
-              Usa tu código personal para volver a entrar.
+              {presetCode
+                ? 'Usa tu alias y código personal para recuperar tu identidad.'
+                : 'Usa tu código personal para volver a entrar.'}
             </p>
           </div>
 
@@ -77,16 +79,35 @@ export function LoginView({ presetCode = '' }: { presetCode?: string }) {
             </CardHeader>
             <CardContent>
               <form onSubmit={submit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="groupCode">Código del grupo</Label>
-                  <Input
-                    id="groupCode"
-                    placeholder="ULTRA-XXXX"
-                    value={groupCode}
-                    onChange={(e) => setGroupCode(e.target.value.toUpperCase())}
-                    className="font-mono"
-                  />
-                </div>
+                {presetCode ? (
+                  <div className="bg-muted/40 border rounded-lg p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                        Grupo
+                      </p>
+                      <p className="font-mono font-bold">{presetCode}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate(`#/join/${presetCode}`)}
+                    >
+                      Cambiar grupo
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="groupCode">Código del grupo</Label>
+                    <Input
+                      id="groupCode"
+                      placeholder="Ej: CONSENSO2026"
+                      value={groupCode}
+                      onChange={(e) => setGroupCode(e.target.value.toUpperCase())}
+                      className="font-mono"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="alias">Mi alias</Label>
                   <Input

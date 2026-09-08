@@ -21,14 +21,15 @@ import {
   RefreshCw,
   AlertTriangle,
   LogOut,
+  EyeOff,
 } from 'lucide-react'
-import { navigate } from '@/lib/router'
+import { navigate, goBack } from '@/lib/router'
 import { toast } from 'sonner'
 import { useFetch } from '@/hooks/use-fetch'
 import { formatPresentationDate } from '@/lib/time'
 
-export function AdminLoginView() {
-  const [groupCode, setGroupCode] = useState('')
+export function AdminLoginView({ presetCode = '' }: { presetCode?: string }) {
+  const [groupCode, setGroupCode] = useState(presetCode)
   const [adminToken, setAdminToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,7 +66,7 @@ export function AdminLoginView() {
     <main className="flex-1 flex flex-col px-4 py-8 md:py-12">
       <div className="max-w-lg w-full mx-auto">
         <button
-          onClick={() => navigate('#/')}
+          onClick={() => goBack('#/')}
           className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
         >
           <ChevronLeft className="size-4 mr-1" /> Volver
@@ -86,10 +87,11 @@ export function AdminLoginView() {
                 <Label htmlFor="ag">Código del grupo</Label>
                 <Input
                   id="ag"
-                  placeholder="ULTRA-XXXX"
+                  placeholder="Ej: CONSENSO2026"
                   value={groupCode}
                   onChange={(e) => setGroupCode(e.target.value.toUpperCase())}
                   className="font-mono"
+                  disabled={!!presetCode}
                 />
               </div>
               <div className="space-y-2">
@@ -149,7 +151,8 @@ export function AdminDashboardView({ code }: { code: string }) {
     )
   }
   if (!authed) {
-    navigate(`#/admin`)
+    // Redirect to admin login with preset code
+    navigate(`#/admin?code=${encodeURIComponent(code)}`)
     return null
   }
 
@@ -157,10 +160,10 @@ export function AdminDashboardView({ code }: { code: string }) {
     <main className="flex-1 flex flex-col px-4 py-8 md:py-12">
       <div className="max-w-3xl w-full mx-auto">
         <button
-          onClick={() => navigate('#/')}
+          onClick={() => goBack('#/')}
           className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
         >
-          <ChevronLeft className="size-4 mr-1" /> Volver al inicio
+          <ChevronLeft className="size-4 mr-1" /> Volver
         </button>
 
         <div className="flex items-center justify-between gap-3 mb-6">
@@ -173,9 +176,8 @@ export function AdminDashboardView({ code }: { code: string }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={async () => {
-              await fetch('/api/auth/logout', { method: 'POST' }) // not admin-specific but clears cookies
-              // Also explicitly clear admin cookie
+            onClick={() => {
+              // Only clear the admin cookie. Participant session (if any) is preserved.
               document.cookie = 'us_admin_session=; max-age=0; path=/'
               navigate('#/')
             }}
@@ -183,6 +185,15 @@ export function AdminDashboardView({ code }: { code: string }) {
             <LogOut className="size-4 mr-2" />
             Salir
           </Button>
+        </div>
+
+        {/* Banner: privacy reminder */}
+        <div className="bg-muted/40 border border-border rounded-lg p-3 mb-6 flex items-start gap-2 text-xs text-muted-foreground">
+          <EyeOff className="size-4 shrink-0 mt-0.5" />
+          <span>
+            <strong>Privacidad:</strong> como administrador solo puedes gestionar aspectos técnicos.
+            Los nombres reales y las respuestas de los participantes se mantienen privados hasta la revelación.
+          </span>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-6">
@@ -225,7 +236,7 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
 function OverviewTab({ code }: { code: string }) {
   const { data, loading, refresh } = useFetch<any>(`/api/groups/${code}/admin`)
   if (loading || !data) return <p className="text-muted-foreground">Cargando...</p>
-  const { group, participants, participantCount, messageCount } = data
+  const { group, participantCount, messageCount } = data
   return (
     <div className="space-y-4">
       <Card className="border-2">
@@ -240,6 +251,26 @@ function OverviewTab({ code }: { code: string }) {
               value={formatPresentationDate(group.presentationDate, group.presentationTime, group.timezone)}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Participar también en el juego */}
+      <Card className="border-2 border-accent/40 bg-accent/5">
+        <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="text-3xl shrink-0">🎭</div>
+          <div className="flex-1">
+            <p className="font-bold">¿Quieres jugar también?</p>
+            <p className="text-sm text-muted-foreground">
+              Regístrate como participante con tu propio alias. Tu identidad de administrador y de participante serán independientes.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate(`#/join/${code}`)}
+          >
+            <MessageCircle className="size-4 mr-2" />
+            Participar también
+          </Button>
         </CardContent>
       </Card>
 
@@ -317,12 +348,18 @@ function ParticipantsTab({ code }: { code: string }) {
         <CardContent className="p-8 text-center">
           <Users className="size-12 mx-auto text-muted-foreground mb-3" />
           <p className="text-muted-foreground">No hay participantes todavía.</p>
+          <p className="text-xs text-muted-foreground mt-1">Comparte el enlace para que se unan.</p>
         </CardContent>
       </Card>
     )
   }
   return (
     <div className="space-y-2">
+      {/* Privacy banner */}
+      <div className="bg-muted/40 border rounded-lg p-2 flex items-center gap-2 text-xs text-muted-foreground mb-3">
+        <EyeOff className="size-3 shrink-0" />
+        <span>Solo se muestran los alias. Los nombres reales se mantienen privados hasta la revelación.</span>
+      </div>
       {participants.map((p: any) => (
         <Card key={p.id} className="border-2">
           <CardContent className="p-3 flex items-center gap-3">

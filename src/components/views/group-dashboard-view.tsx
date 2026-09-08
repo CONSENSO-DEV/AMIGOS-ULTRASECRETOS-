@@ -13,8 +13,9 @@ import {
   PartyPopper,
   LogOut,
   Settings,
+  UserX,
 } from 'lucide-react'
-import { navigate } from '@/lib/router'
+import { navigate, goBack } from '@/lib/router'
 import { useFetch } from '@/hooks/use-fetch'
 import { CountdownDisplay } from '@/components/countdown'
 import { formatPresentationDate, getPresentationTimestamp } from '@/lib/time'
@@ -46,6 +47,7 @@ export function GroupDashboardView({ code }: { code: string }) {
   const [tab, setTab] = useState<Tab>('home')
   const [self, setSelf] = useState<{ id: string; alias: string; avatar: string } | null>(null)
   const [mineData, setMineData] = useState<MineData | null>(null)
+  const [showSessionMenu, setShowSessionMenu] = useState(false)
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -114,7 +116,11 @@ export function GroupDashboardView({ code }: { code: string }) {
       {/* Header */}
       <header className="px-4 py-4 border-b bg-card/80 backdrop-blur sticky top-0 z-30">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={() => goBack('#/')}
+            className="flex items-center gap-2 min-w-0 text-left"
+            aria-label="Volver"
+          >
             <span className="text-2xl shrink-0">🕵️</span>
             <div className="min-w-0">
               <h1 className="font-extrabold text-base truncate">{group?.name ?? 'Amigos Ultrasecretos'}</h1>
@@ -122,21 +128,56 @@ export function GroupDashboardView({ code }: { code: string }) {
                 👥 {participantCount} · {statusBadge(status)}
               </p>
             </div>
+          </button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSessionMenu(!showSessionMenu)}
+              aria-label="Opciones de sesión"
+            >
+              <span className="text-lg mr-1">{self.avatar}</span>
+              <span className="hidden sm:inline text-xs font-medium max-w-[80px] truncate">{self.alias}</span>
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={async () => {
-              await fetch('/api/auth/logout', { method: 'POST' })
-              localStorage.removeItem('us_self_id')
-              toast.success('Sesión cerrada')
-              navigate('#/')
-            }}
-            className="shrink-0"
-          >
-            <LogOut className="size-4" />
-          </Button>
         </div>
+
+        {showSessionMenu && (
+          <div className="max-w-3xl mx-auto mt-2 relative">
+            <div className="absolute right-0 top-0 w-64 bg-card border rounded-xl shadow-lg overflow-hidden z-50">
+              <div className="p-3 border-b bg-muted/30">
+                <p className="text-xs text-muted-foreground">Conectado como</p>
+                <p className="font-bold">{self.avatar} {self.alias}</p>
+              </div>
+              <button
+                className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted/40 transition-colors flex items-center gap-2 border-b"
+                onClick={() => {
+                  setShowSessionMenu(false)
+                  navigate(`#/login?code=${encodeURIComponent(code)}`)
+                }}
+              >
+                <UserX className="size-4" />
+                ¿No eres tú? Cambiar de participante
+              </button>
+              <button
+                className="w-full text-left px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2"
+                onClick={async () => {
+                  await fetch('/api/auth/logout', { method: 'POST' })
+                  localStorage.removeItem('us_self_id')
+                  toast.success('Sesión cerrada')
+                  navigate('#/')
+                }}
+              >
+                <LogOut className="size-4" />
+                🚪 Salir
+              </button>
+            </div>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setShowSessionMenu(false)}
+            />
+          </div>
+        )}
       </header>
 
       {/* Content */}
@@ -254,7 +295,10 @@ function UnauthenticatedView({ code }: { code: string }) {
           Para entrar a este grupo necesitas tu alias y código personal.
         </p>
         <div className="flex flex-col gap-2">
-          <Button onClick={() => navigate(`#/login`)} className="h-12">
+          <Button
+            onClick={() => navigate(`#/login?code=${encodeURIComponent(code)}`)}
+            className="h-12"
+          >
             Recuperar mi acceso
           </Button>
           <Button

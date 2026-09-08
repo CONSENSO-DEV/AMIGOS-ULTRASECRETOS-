@@ -55,13 +55,14 @@ export async function POST(req: NextRequest) {
         name: 'Amigos Ultrasecretos Demo',
         description:
           'Grupo de demostración para probar todas las funcionalidades de la app.',
-        code: generateGroupCode(),
+        // Use a custom demo code if available, otherwise generate one
+        code: await getDemoCode(),
         presentationDate,
         presentationTime,
         timezone: 'America/Bogota',
         status: 'ACTIVE',
         adminTokenHash: hashToken(adminToken),
-        organizerName: 'Organizador Demo',
+        // Admin is NOT a participant; we don't store organizer name on the group.
       },
     })
 
@@ -167,3 +168,17 @@ function pickOtherIdx(exclude: number, total: number): number {
   while (i === exclude) i = Math.floor(Math.random() * total)
   return i
 }
+
+/**
+ * Returns a memorable demo code, falling back to a generated one if all
+ * the obvious candidates are taken.
+ */
+async function getDemoCode(): Promise<string> {
+  const candidates = ['DEMO', 'DEMO2026', 'ULTRA', 'ULTRADEMO']
+  for (const c of candidates) {
+    const exists = await db.group.findUnique({ where: { code: c } })
+    if (!exists) return c
+  }
+  return generateGroupCode()
+}
+

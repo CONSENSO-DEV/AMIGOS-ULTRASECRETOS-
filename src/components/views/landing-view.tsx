@@ -257,7 +257,7 @@ function DemoCreatedCard({
         </div>
         <Button
           className="w-full mt-3"
-          onClick={() => navigate(`#/login`)}
+          onClick={() => navigate(`#/login?code=${encodeURIComponent(group.code)}`)}
         >
           Entrar al demo →
         </Button>
