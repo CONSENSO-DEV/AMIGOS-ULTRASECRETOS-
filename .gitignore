@@ -1,8 +1,6 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-node_modules
-/.pnp
+# Dependencies
+node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -10,45 +8,67 @@ node_modules
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# Testing
 /coverage
 
-# next.js
+# Next.js
 /.next/
 /out/
 
-# production
+# Production builds
 /build
+*.tsbuildinfo
+next-env.d.ts
 
-# misc
-.DS_Store
-*.pem
+# Environment files (NEVER commit secrets)
+.env
+.env.*
+!.env.example
 
-# debug
+# Database (SQLite local + dev DB)
+/db/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+/prisma/migrations/dev.db*
+
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+dev.log
+server.log
 
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
+# Vercel
 .vercel
 
+# OS
+.DS_Store
+Thumbs.db
+*.pem
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local config / sandbox internals
 local-*
 .claude
 .z-ai-config
-*.log
-dev.log
-dev.out.log
-test
-prompt
-
-server.log
-# Skills directory
+.zscripts/
 /skills/
+/tests/
+
+# Demo screenshots (kept in /download for end users but not tracked)
+/download/
+
+# Build artifacts from mini-services
+/mini-services/*/node_modules/
+/mini-services/*/bun.lockb
+/mini-services/*/.bun-build/
